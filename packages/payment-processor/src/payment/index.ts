@@ -2,7 +2,7 @@ import { ContractTransaction, Signer } from 'ethers';
 import { Provider, Web3Provider } from 'ethers/providers';
 import { BigNumberish, bigNumberify } from 'ethers/utils';
 
-import { ClientTypes, ExtensionTypes } from '@requestnetwork/types';
+import { ClientTypes, ExtensionTypes, PaymentTypes } from '@requestnetwork/types';
 
 import { getBtcPaymentUrl } from './btc-address-based';
 import { _getErc20PaymentUrl, getAnyErc20Balance } from './erc20';
@@ -13,15 +13,21 @@ import { getNetworkProvider, getProvider, getSigner } from './utils';
 import { ICurrency } from '@requestnetwork/types/dist/request-logic-types';
 import { ISwapSettings } from './swap-erc20-fee-proxy';
 
-export const supportedNetworks = [
+export const supportedNetworks: PaymentTypes.PAYMENT_NETWORK_ID[] = [
   ExtensionTypes.ID.PAYMENT_NETWORK_ERC20_PROXY_CONTRACT,
   ExtensionTypes.ID.PAYMENT_NETWORK_ERC20_FEE_PROXY_CONTRACT,
-  ExtensionTypes.ID.PAYMENT_NETWORK_ETH_INPUT_DATA
+  ExtensionTypes.ID.PAYMENT_NETWORK_ETH_INPUT_DATA,
 ];
 
-const getPaymentNetwork = (request: ClientTypes.IRequestData): ExtensionTypes.ID | undefined => {
+const getPaymentNetwork = (
+  request: ClientTypes.IRequestData,
+): PaymentTypes.PAYMENT_NETWORK_ID | undefined => {
   // tslint:disable-next-line: typedef
-  return Object.values(request.extensions).find(x => x.type === 'payment-network')?.id;
+  const pn = Object.values(request.extensions).find((x) => x.type === 'payment-network');
+  if (pn?.id === ExtensionTypes.ID.CONTENT_DATA) {
+    throw new Error('Extension is not a payment network');
+  }
+  return pn?.id;
 };
 
 /**
@@ -119,7 +125,7 @@ export async function hasSufficientFunds(
     address,
     request.currencyInfo,
     bigNumberify(request.expectedAmount).add(feeAmount),
-    provider
+    provider,
   );
 }
 
@@ -139,8 +145,9 @@ export async function isSolvent(
   provider: Provider,
 ): Promise<boolean> {
   const ethBalance = await provider.getBalance(fromAddress);
-  const needsGas  =  !['Safe Multisig WalletConnect', 'Gnosis Safe Multisig']
-    .includes((provider as any)?.provider?.wc?._peerMeta?.name);
+  const needsGas = !['Safe Multisig WalletConnect', 'Gnosis Safe Multisig'].includes(
+    (provider as any)?.provider?.wc?._peerMeta?.name,
+  );
 
   if (currency.type === 'ETH') {
     return ethBalance.gt(amount);
@@ -149,7 +156,6 @@ export async function isSolvent(
     return (ethBalance.gt(0) || !needsGas) && bigNumberify(balance).gte(amount);
   }
 }
-
 
 /**
  * Returns the balance of a given address in a given currency.
@@ -181,8 +187,10 @@ async function getCurrencyBalance(
  */
 export function canSwapToPay(request: ClientTypes.IRequestData): boolean {
   const paymentNetwork = getPaymentNetwork(request);
-  return (paymentNetwork !== undefined
-    && (paymentNetwork === ExtensionTypes.ID.PAYMENT_NETWORK_ERC20_FEE_PROXY_CONTRACT));
+  return (
+    paymentNetwork !== undefined &&
+    paymentNetwork === ExtensionTypes.ID.PAYMENT_NETWORK_ERC20_FEE_PROXY_CONTRACT
+  );
 }
 
 /**

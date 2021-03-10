@@ -5,6 +5,8 @@ import * as Extension from './extension-types';
 import * as Identity from './identity-types';
 import * as Signature from './signature-types';
 
+import { EnumToType } from './shared';
+
 /** Request Logic layer */
 export interface IRequestLogic {
   createRequest: (
@@ -102,22 +104,22 @@ export interface IReturnGetRequestsByTopic extends IRequestLogicReturn {
 }
 
 /** Interface of a request logic action */
-export interface IAction {
-  data: IUnsignedAction;
+export interface IAction<T = any> {
+  data: IUnsignedAction<T>;
   signature: Signature.ISignature;
 }
 
 /** Interface of a request logic action confirmed */
-export interface IConfirmedAction {
-  action: IAction;
+export interface IConfirmedAction<T = any> {
+  action: IAction<T>;
   timestamp: number;
 }
 
 /** Interface of a request logic unsigned action */
-export interface IUnsignedAction {
+export interface IUnsignedAction<T = any> {
   name: ACTION_NAME;
   version: string;
-  parameters: any;
+  parameters: T;
 }
 
 /** Request in request logic */
@@ -135,7 +137,7 @@ export interface IRequest {
   /** Extensions states */
   extensions: IExtensionStates;
   /** Extensions raw data */
-  extensionsData: any[];
+  extensionsData: Extension.IAction[];
   events: IEvent[];
   /** timestamp of the request creation in seconds
    * Note: this precision is enough in a blockchain context
@@ -178,7 +180,7 @@ export interface ICreateParameters {
   expectedAmount: Amount;
   payee?: Identity.IIdentity;
   payer?: Identity.IIdentity;
-  extensionsData?: any[];
+  extensionsData?: Extension.IAction[];
   /** timestamp of the request creation in seconds
    * Note: this precision is enough in a blockchain context
    * Note: as it is a user given parameter, the only consensus on this date it between the payer and payee
@@ -191,20 +193,20 @@ export interface ICreateParameters {
 /** Parameters to accept a request */
 export interface IAcceptParameters {
   requestId: RequestId;
-  extensionsData?: any[];
+  extensionsData?: Extension.IAction[];
 }
 
 /** Parameters to cancel a request */
 export interface ICancelParameters {
   requestId: RequestId;
-  extensionsData?: any[];
+  extensionsData?: Extension.IAction[];
 }
 
 /** Parameters to increase amount of a request */
 export interface IIncreaseExpectedAmountParameters {
   deltaAmount: Amount;
   requestId: RequestId;
-  extensionsData?: any[];
+  extensionsData?: Extension.IAction[];
   /** arbitrary number to differentiate several identical transaction */
   nonce?: number;
 }
@@ -213,7 +215,7 @@ export interface IIncreaseExpectedAmountParameters {
 export interface IReduceExpectedAmountParameters {
   deltaAmount: Amount;
   requestId: RequestId;
-  extensionsData?: any[];
+  extensionsData?: Extension.IAction[];
   /** arbitrary number to differentiate several identical transaction */
   nonce?: number;
 }
@@ -221,7 +223,7 @@ export interface IReduceExpectedAmountParameters {
 /** Parameters to add extensions data to a request */
 export interface IAddExtensionsDataParameters {
   requestId: RequestId;
-  extensionsData: any[];
+  extensionsData: Extension.IAction[];
   /** arbitrary number to differentiate several identical transaction */
   nonce?: number;
 }
@@ -246,37 +248,45 @@ export interface ICurrency {
   network?: string;
 }
 
+export const ACTION_NAME = {
+  CREATE: 'create',
+  BROADCAST: 'broadcastSignedRequest',
+  ACCEPT: 'accept',
+  CANCEL: 'cancel',
+  REDUCE_EXPECTED_AMOUNT: 'reduceExpectedAmount',
+  INCREASE_EXPECTED_AMOUNT: 'increaseExpectedAmount',
+  ADD_EXTENSIONS_DATA: 'addExtensionsData',
+} as const;
+
 /** Enum of name possible in a action */
-export enum ACTION_NAME {
-  CREATE = 'create',
-  BROADCAST = 'broadcastSignedRequest',
-  ACCEPT = 'accept',
-  CANCEL = 'cancel',
-  REDUCE_EXPECTED_AMOUNT = 'reduceExpectedAmount',
-  INCREASE_EXPECTED_AMOUNT = 'increaseExpectedAmount',
-  ADD_EXTENSIONS_DATA = 'addExtensionsData',
-}
+export type ACTION_NAME = EnumToType<typeof ACTION_NAME>;
+
+export const CURRENCY = {
+  ETH: 'ETH',
+  BTC: 'BTC',
+  ISO4217: 'ISO4217',
+  ERC20: 'ERC20',
+} as const;
 
 /** Supported currencies */
-export enum CURRENCY {
-  ETH = 'ETH',
-  BTC = 'BTC',
-  ISO4217 = 'ISO4217',
-  ERC20 = 'ERC20',
-}
+export type CURRENCY = EnumToType<typeof CURRENCY>;
+
+export const STATE = {
+  // use for upper layer (trick to avoid headache with retyping request in upper layer)
+  PENDING: 'pending',
+  CREATED: 'created',
+  ACCEPTED: 'accepted',
+  CANCELED: 'canceled',
+};
 
 /** States of a request */
-export enum STATE {
-  // use for upper layer (trick to avoid headache with retyping request in upper layer)
-  PENDING = 'pending',
-  CREATED = 'created',
-  ACCEPTED = 'accepted',
-  CANCELED = 'canceled',
-}
+export type STATE = EnumToType<typeof STATE>;
+
+export const ROLE = {
+  PAYEE: 'payee',
+  PAYER: 'payer',
+  THIRD_PARTY: 'third-party',
+};
 
 /** Identity roles */
-export enum ROLE {
-  PAYEE = 'payee',
-  PAYER = 'payer',
-  THIRD_PARTY = 'third-party',
-}
+export type ROLE = EnumToType<typeof ROLE>;
