@@ -18,7 +18,7 @@ contract MyEscrow is Escrow {
 
     // TODO: 
     // Add modifer for payer, payee 
-    // replace onlyOner in getEscrow
+    // replace onlyOwner in getEscrow
     
 
     function initAndDeposit(bytes memory _paymentRef, address payable _payee) public payable onlyOwner {
