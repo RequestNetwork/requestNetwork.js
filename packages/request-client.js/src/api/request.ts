@@ -5,7 +5,7 @@ import { IdentityTypes, PaymentTypes, RequestLogicTypes } from '@requestnetwork/
 import Utils from '@requestnetwork/utils';
 import * as Types from '../types';
 import ContentDataExtension from './content-data-extension';
-import { currencyToString } from '@requestnetwork/currency';
+import { Currency } from '@requestnetwork/currency';
 import localUtils from './utils';
 
 /**
@@ -657,6 +657,64 @@ export default class Request {
   }
 
   /**
+   * Add a delegate for the declarative payment network
+   *
+   * @param delegate Identity of the delegate
+   * @param signerIdentity Identity of the signer. The identity type must be supported by the signature provider.
+   * @returns The updated request
+   */
+  public async addDeclarativeDelegate(
+    delegate: IdentityTypes.IIdentity,
+    signerIdentity: IdentityTypes.IIdentity,
+  ): Promise<Types.IRequestDataWithEvents> {
+    const extensionsData: any[] = [];
+
+    if (!this.paymentNetwork) {
+      throw new Error('Cannot declare delegate without payment network');
+    }
+
+    // We need to cast the object since IPaymentNetwork doesn't implement createExtensionsDataForDeclareReceivedRefund
+    const declarativePaymentNetwork: PaymentNetworkDeclarative = this
+      .paymentNetwork as PaymentNetworkDeclarative;
+
+    if (!declarativePaymentNetwork.createExtensionsDataForAddDelegate) {
+      throw new Error('Cannot declare delegate without declarative payment network');
+    }
+
+    extensionsData.push(
+      declarativePaymentNetwork.createExtensionsDataForAddDelegate({
+        delegate,
+      }),
+    );
+
+    const parameters: RequestLogicTypes.IAddExtensionsDataParameters = {
+      extensionsData,
+      requestId: this.requestId,
+    };
+
+    const addExtensionResult = await this.requestLogic.addExtensionsDataRequest(
+      parameters,
+      signerIdentity,
+      true,
+    );
+
+    // refresh the local request data
+    const requestData = await this.refresh();
+
+    if (!this.disableEvents) {
+      addExtensionResult
+        .on('confirmed', async () => {
+          requestData.emit('confirmed', await this.refresh());
+        })
+        .on('error', (error) => {
+          this.emitter.emit('error', error);
+        });
+    }
+
+    return requestData;
+  }
+
+  /**
    * Gets the request data
    *
    * @returns The updated request data
@@ -679,7 +737,7 @@ export default class Request {
       ...requestData,
       balance: this.balance,
       contentData: this.contentData,
-      currency: requestData.currency ? currencyToString(requestData.currency) : 'unknown',
+      currency: requestData.currency ? new Currency(requestData.currency).toString() : 'unknown',
       currencyInfo: requestData.currency,
       meta: this.requestMeta,
       pending,

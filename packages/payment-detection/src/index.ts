@@ -5,7 +5,10 @@ import * as BtcPaymentNetwork from './btc';
 import DeclarativePaymentNetwork from './declarative';
 import * as Erc20PaymentNetwork from './erc20';
 import * as EthPaymentNetwork from './eth';
-import { initPaymentDetectionProvider, getDefaultProvider } from './provider';
+import { initPaymentDetectionApiKeys, setProviderFactory, getDefaultProvider } from './provider';
+import { getTheGraphClient, networkSupportsTheGraph } from './thegraph';
+import { parseLogArgs, padAmountForChainlink, unpadAmountFromChainlink } from './utils';
+export type { TheGraphClient } from './thegraph';
 
 export {
   PaymentNetworkFactory,
@@ -14,6 +17,12 @@ export {
   DeclarativePaymentNetwork,
   Erc20PaymentNetwork,
   EthPaymentNetwork,
-  initPaymentDetectionProvider,
+  setProviderFactory,
+  initPaymentDetectionApiKeys,
   getDefaultProvider,
+  getTheGraphClient,
+  networkSupportsTheGraph,
+  parseLogArgs,
+  padAmountForChainlink,
+  unpadAmountFromChainlink,
 };

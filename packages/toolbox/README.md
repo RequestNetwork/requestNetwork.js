@@ -4,12 +4,6 @@
 It is a collection of miscellaneous tools.
 This package can use other package of the monorepo, but the other packages cannot use toolbox.
 
-## Installation
-
-```bash
-npm install @requestnetwork/toolbox
-```
-
 ## Usage
 
 ### Create request
@@ -69,6 +63,22 @@ yarn chainlinkPath
 #   ...
 # }
 # ###################################################################
+```
+
+To get only aggregators of one network:
+
+```bash
+yarn chainlinkPath mainnet
+```
+
+To get a currency hash:
+
+```bash
+yarn request-toolbox currencyHash ETH
+# #####################################################################
+# Currency hash of: ETH
+# 0xf5af88e117747e87fc5929f2ff87221b1447652e
+# #####################################################################
 ```
 
 ## Contributing

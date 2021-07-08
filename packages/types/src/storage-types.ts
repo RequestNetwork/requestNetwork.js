@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 
-import { BigNumber } from '@ethersproject/bignumber';
+import { BigNumber } from 'ethers';
 import { Signer } from '@ethersproject/abstract-signer';
 
 /** Interface of the storage */

@@ -1,3 +1,4 @@
+import { BigNumber } from 'ethers';
 import {
   AdvancedLogicTypes,
   ExtensionTypes,
@@ -5,40 +6,18 @@ import {
   RequestLogicTypes,
 } from '@requestnetwork/types';
 import Utils from '@requestnetwork/utils';
+import { erc20ProxyArtifact } from '@requestnetwork/smart-contracts';
 import getBalanceErrorObject from '../balance-error';
 import PaymentReferenceCalculator from '../payment-reference-calculator';
 import ProxyInfoRetriever from './proxy-info-retriever';
-
-import { BigNumber } from 'ethers';
+import TheGraphInfoRetriever from './thegraph-info-retriever';
+import { networkSupportsTheGraph } from '../thegraph';
 
 /* eslint-disable max-classes-per-file */
 /** Exception when network not supported */
 class NetworkNotSupported extends Error {}
 /** Exception when version not supported */
 class VersionNotSupported extends Error {}
-
-interface IProxyContractByVersionByNetwork {
-  [version: string]: {
-    [network: string]: { address: string; creationBlockNumber: number };
-  };
-}
-
-const PROXY_CONTRACT_ADDRESS_BY_VERSION_BY_NETWORK: IProxyContractByVersionByNetwork = {
-  ['0.1.0']: {
-    mainnet: {
-      address: '0x5f821c20947ff9be22e823edc5b3c709b33121b3',
-      creationBlockNumber: 9119380,
-    },
-    private: {
-      address: '0x2c2b9c9a4a25e24b174f26114e8926a9f2128fe4',
-      creationBlockNumber: 0,
-    },
-    rinkeby: {
-      address: '0x162edb802fae75b9ee4288345735008ba51a4ec9',
-      creationBlockNumber: 5628198,
-    },
-  },
-};
 
 /**
  * Handle payment networks with ERC20 proxy contract extension
@@ -196,21 +175,20 @@ export default class PaymentNetworkERC20ProxyContract implements PaymentTypes.IP
       throw new NetworkNotSupported(`Payment network not supported by ERC20 payment detection`);
     }
 
-    if (!PROXY_CONTRACT_ADDRESS_BY_VERSION_BY_NETWORK[paymentNetworkVersion]) {
+    let proxyContractAddress: string;
+    let proxyCreationBlockNumber: number;
+    try {
+      const info = erc20ProxyArtifact.getDeploymentInformation(network, paymentNetworkVersion);
+      proxyContractAddress = info.address;
+      proxyCreationBlockNumber = info.creationBlockNumber;
+    } catch (e) {
+      if (e.message?.startsWith('No deployment for network')) {
+        throw new NetworkNotSupported(
+          `Network not supported for this payment network: ${request.currency.network}`,
+        );
+      }
       throw new VersionNotSupported(
         `Payment network version not supported: ${paymentNetworkVersion}`,
-      );
-    }
-
-    const proxyContractAddress: string | undefined =
-      PROXY_CONTRACT_ADDRESS_BY_VERSION_BY_NETWORK[paymentNetworkVersion][network].address;
-    const proxyCreationBlockNumber: number =
-      PROXY_CONTRACT_ADDRESS_BY_VERSION_BY_NETWORK[paymentNetworkVersion][network]
-        .creationBlockNumber;
-
-    if (!proxyContractAddress) {
-      throw new NetworkNotSupported(
-        `Network not supported for this payment network: ${request.currency.network}`,
       );
     }
 
@@ -220,16 +198,24 @@ export default class PaymentNetworkERC20ProxyContract implements PaymentTypes.IP
       toAddress,
     );
 
-    const infoRetriever = new ProxyInfoRetriever(
-      paymentReference,
-      proxyContractAddress,
-      proxyCreationBlockNumber,
-      request.currency.value,
-      toAddress,
-      eventName,
-      network,
-    );
-
+    const infoRetriever = networkSupportsTheGraph(network)
+      ? new TheGraphInfoRetriever(
+          paymentReference,
+          proxyContractAddress,
+          request.currency.value,
+          toAddress,
+          eventName,
+          network,
+        )
+      : new ProxyInfoRetriever(
+          paymentReference,
+          proxyContractAddress,
+          proxyCreationBlockNumber,
+          request.currency.value,
+          toAddress,
+          eventName,
+          network,
+        );
     const events = await infoRetriever.getTransferEvents();
 
     const balance = events

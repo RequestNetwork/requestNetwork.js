@@ -11,6 +11,8 @@ import PaymentReferenceCalculator from '../payment-reference-calculator';
 import ProxyInfoRetriever from './proxy-info-retriever';
 
 import { BigNumber } from 'ethers';
+import { networkSupportsTheGraph } from '../thegraph';
+import TheGraphInfoRetriever from './thegraph-info-retriever';
 
 /* eslint-disable max-classes-per-file */
 /** Exception when network not supported */
@@ -212,7 +214,10 @@ export default class PaymentNetworkERC20FeeProxyContract<
       throw new NetworkNotSupported(`Payment network not supported by ERC20 payment detection`);
     }
 
-    const deploymentInformation = this.getDeploymentInformation(network, paymentNetwork.version);
+    const deploymentInformation = erc20FeeProxyArtifact.getDeploymentInformation(
+      network,
+      paymentNetwork.version,
+    );
 
     if (!deploymentInformation) {
       throw new VersionNotSupported(
@@ -235,16 +240,24 @@ export default class PaymentNetworkERC20FeeProxyContract<
       toAddress,
     );
 
-    const infoRetriever = new ProxyInfoRetriever(
-      paymentReference,
-      proxyContractAddress,
-      proxyCreationBlockNumber,
-      request.currency.value,
-      toAddress,
-      eventName,
-      network,
-    );
-
+    const infoRetriever = networkSupportsTheGraph(network)
+      ? new TheGraphInfoRetriever(
+          paymentReference,
+          proxyContractAddress,
+          request.currency.value,
+          toAddress,
+          eventName,
+          network,
+        )
+      : new ProxyInfoRetriever(
+          paymentReference,
+          proxyContractAddress,
+          proxyCreationBlockNumber,
+          request.currency.value,
+          toAddress,
+          eventName,
+          network,
+        );
     const events = await infoRetriever.getTransferEvents();
 
     const balance = events
@@ -307,7 +320,4 @@ export default class PaymentNetworkERC20FeeProxyContract<
   get paymentNetworkId(): ExtensionTypes.ID {
     return this._paymentNetworkId;
   }
-
-  protected getDeploymentInformation: DeploymentInformationGetter =
-    erc20FeeProxyArtifact.getDeploymentInformation;
 }

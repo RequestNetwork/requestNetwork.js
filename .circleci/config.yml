@@ -44,6 +44,9 @@ jobs:
       - run:
           name: Generate Smart Contract types
           command: yarn workspace @requestnetwork/smart-contracts run build
+      - run:
+          name: Generate Payment Detection queries
+          command: yarn workspace @requestnetwork/payment-detection run codegen
      
       - persist_to_workspace:
           root: *working_directory
@@ -175,6 +178,9 @@ jobs:
       - run:
           name: 'Test smart contracts smart-contracts'
           command: 'yarn workspace @requestnetwork/smart-contracts run test'
+      - run:
+          name: 'Test smart contracts utilities'
+          command: 'yarn workspace @requestnetwork/smart-contracts run test:lib'
   test-request-logic:
     docker:
       - *node_image

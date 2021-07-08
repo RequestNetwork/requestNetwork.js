@@ -1,13 +1,13 @@
-import { ethers, getDefaultProvider, Signer, providers, BigNumber, BigNumberish } from 'ethers';
+import { ethers, Signer, providers, BigNumber, BigNumberish } from 'ethers';
 
-import { PaymentReferenceCalculator } from '@requestnetwork/payment-detection';
+import { PaymentReferenceCalculator, getDefaultProvider } from '@requestnetwork/payment-detection';
 import {
   ClientTypes,
   ExtensionTypes,
   PaymentTypes,
   RequestLogicTypes,
 } from '@requestnetwork/types';
-import Currency from '@requestnetwork/currency';
+import { Currency } from '@requestnetwork/currency';
 
 /**
  * Thrown when the library does not support a payment blockchain network.
@@ -35,13 +35,7 @@ export function getProvider(): providers.Web3Provider {
  * @param request
  */
 export function getNetworkProvider(request: ClientTypes.IRequestData): providers.Provider {
-  if (request.currencyInfo.network === 'mainnet') {
-    return getDefaultProvider();
-  }
-  if (request.currencyInfo.network === 'rinkeby') {
-    return getDefaultProvider('rinkeby');
-  }
-  throw new UnsupportedCurrencyNetwork(request.currencyInfo.network);
+  return getDefaultProvider(request.currencyInfo.network);
 }
 
 /**
@@ -230,7 +224,9 @@ export function validateConversionFeeProxyRequest(
   const { tokensAccepted } = getRequestPaymentValues(request);
 
   const requestCurrencyHash = path[0];
-  if (requestCurrencyHash !== Currency.getCurrencyHash(request.currencyInfo)) {
+  if (
+    requestCurrencyHash.toLowerCase() !== new Currency(request.currencyInfo).getHash().toLowerCase()
+  ) {
     throw new Error(`The first entry of the path does not match the request currency`);
   }
 

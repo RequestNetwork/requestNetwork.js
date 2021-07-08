@@ -1,6 +1,6 @@
 {
   "name": "@requestnetwork/payment-detection",
-  "version": "0.32.0",
+  "version": "0.35.0",
   "publishConfig": {
     "access": "public"
   },
@@ -30,24 +30,35 @@
     "dist"
   ],
   "scripts": {
+    "prebuild": "yarn codegen",
     "build": "tsc -b",
-    "clean": "shx rm -rf dist tsconfig.tsbuildinfo",
+    "clean": "shx rm -rf dist tsconfig.tsbuildinfo **/generated",
     "lint": "eslint \"src/**/*.ts\"",
     "prepare": "yarn run build",
     "test": "jest --runInBand",
-    "test:watch": "yarn test --watch"
+    "test:watch": "yarn test --watch",
+    "codegen": "graphql-codegen --config codegen.yml"
   },
   "dependencies": {
-    "@requestnetwork/currency": "0.5.0",
-    "@requestnetwork/smart-contracts": "0.25.0",
-    "@requestnetwork/types": "0.32.0",
-    "@requestnetwork/utils": "0.32.0",
+    "@requestnetwork/currency": "0.8.0",
+    "@requestnetwork/smart-contracts": "0.28.0",
+    "@requestnetwork/types": "0.35.0",
+    "@requestnetwork/utils": "0.35.0",
     "axios": "0.21.1",
-    "ethers": "5.0.32",
+    "ethers": "5.2.0",
+    "graphql": "15.5.0",
+    "graphql-request": "3.4.0",
+    "graphql-tag": "2.12.4",
     "node-fetch": "2.6.1",
     "satoshi-bitcoin": "1.0.4"
   },
   "devDependencies": {
+    "@graphql-codegen/cli": "1.21.5",
+    "@graphql-codegen/typescript": "1.22.1",
+    "@graphql-codegen/typescript-document-nodes": "1.17.12",
+    "@graphql-codegen/typescript-graphql-request": "3.2.1",
+    "@graphql-codegen/typescript-operations": "1.18.0",
+    "@graphql-codegen/typescript-resolvers": "1.19.2",
     "@types/jest": "26.0.13",
     "jest": "26.4.2",
     "nyc": "15.1.0",

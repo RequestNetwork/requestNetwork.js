@@ -1,6 +1,6 @@
-import { constants, ContractTransaction, Signer, providers, BigNumber, BigNumberish } from 'ethers';
+import { constants, ContractTransaction, Signer, providers, BigNumberish } from 'ethers';
 
-import { getDecimalsForCurrency, getConversionPath } from '@requestnetwork/currency';
+import { getConversionPath, Currency } from '@requestnetwork/currency';
 import { erc20ConversionProxy } from '@requestnetwork/smart-contracts';
 import { Erc20ConversionProxy__factory } from '@requestnetwork/smart-contracts/types';
 import { ClientTypes, RequestLogicTypes } from '@requestnetwork/types';
@@ -13,6 +13,7 @@ import {
   getSigner,
   validateConversionFeeProxyRequest,
 } from './utils';
+import { padAmountForChainlink } from '@requestnetwork/payment-detection';
 
 /**
  * Details required to pay a request with on-chain conversion:
@@ -28,12 +29,10 @@ export interface IPaymentSettings {
  * Processes a transaction to pay a request with an ERC20 currency that is different from the request currency (eg. fiat).
  * The payment is made by the ERC20 fee proxy contract.
  * @param request the request to pay
- * @param paymentTokenAddress the token address to pay the request
- * @param maxToSpend maximum of token the user is willing to spend
  * @param signerOrProvider the Web3 provider, or signer. Defaults to window.ethereum.
+ * @param paymentSettings payment settings
  * @param amount optionally, the amount to pay. Defaults to remaining amount of the request.
  * @param feeAmount optionally, the fee amount to pay. Defaults to the fee amount.
- * @param network optionally, network of the payment. Defaults to 'mainnet'
  * @param overrides optionally, override default transaction values, like gas.
  */
 export async function payAnyToErc20ProxyRequest(
@@ -70,12 +69,10 @@ export async function payAnyToErc20ProxyRequest(
 /**
  * Encodes the call to pay a request with an ERC20 currency that is different from the request currency (eg. fiat). The payment is made by the ERC20 fee proxy contract.
  * @param request request to pay
- * @param paymentTokenAddress token address to pay with
- * @param maxToSpend maximum of token the user is willing to spend
  * @param signerOrProvider the Web3 provider, or signer. Defaults to window.ethereum.
+ * @param paymentSettings payment settings
  * @param amount optionally, the amount to pay. Defaults to remaining amount of the request.
  * @param feeAmountOverride optionally, the fee amount to pay. Defaults to the fee amount of the request.
- * @param network optionally, network of the payment. Defaults to 'mainnet'
  */
 export async function encodePayAnyToErc20ProxyRequest(
   request: ClientTypes.IRequestData,
@@ -112,17 +109,10 @@ export async function encodePayAnyToErc20ProxyRequest(
     maxRateTimespan,
   } = getRequestPaymentValues(request);
 
-  const chainlinkDecimal = 8;
-  const decimalPadding = Math.max(
-    chainlinkDecimal - getDecimalsForCurrency(request.currencyInfo),
-    0,
-  );
+  const requestCurrency = new Currency(request.currencyInfo);
+  const amountToPay = padAmountForChainlink(getAmountToPay(request, amount), requestCurrency);
+  const feeToPay = padAmountForChainlink(feeAmountOverride || feeAmount || 0, requestCurrency);
 
-  // eslint-disable-next-line no-magic-numbers
-  const amountToPay = getAmountToPay(request, amount).mul(10 ** decimalPadding);
-
-  // eslint-disable-next-line no-magic-numbers
-  const feeToPay = BigNumber.from(feeAmountOverride || feeAmount || 0).mul(10 ** decimalPadding);
   const proxyAddress = erc20ConversionProxy.getAddress(paymentSettings.currency.network);
   const proxyContract = Erc20ConversionProxy__factory.connect(proxyAddress, signer);
 
