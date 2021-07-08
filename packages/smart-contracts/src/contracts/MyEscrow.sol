@@ -40,7 +40,6 @@ contract MyEscrow is ConditionalEscrow {
         _;
     }
 
-
     /// Events to notify when the escrow is locked or unlocked
     event EscrowLocked(bytes indexed paymentReference, uint amount, address payee);
     event EscrowUnlocked(bytes indexed paymentReference, uint amount, address payee);
@@ -48,7 +47,6 @@ contract MyEscrow is ConditionalEscrow {
     IERC20FeeProxy public paymentProxy;
     uint public feeAmount;
     address public feeAddress;
-
 
 
     // Register token to use with the smartcontract
@@ -89,21 +87,8 @@ contract MyEscrow is ConditionalEscrow {
             "This paymentRef already exists, is this the correct paymentRef?"
         );
 
-        // Rinkeby Contract Address 
-        paymentProxy = IERC20FeeProxy(0xda46309973bFfDdD5a10cE12c44d2EE266f45A44);
-        
         referenceMapping[_paymentRef] = Invoice(_tokenAddress, _amount, _payee);
         
-
-        paymentProxy.transferFromWithReferenceAndFee(
-            _tokenAddress, 
-            _payee, 
-            _amount, 
-            _paymentRef, 
-            feeAmount, 
-            feeAddress 
-        );
-
         emit EscrowLocked(_paymentRef, _amount, _payee);
     }
    
@@ -138,17 +123,26 @@ contract MyEscrow is ConditionalEscrow {
             referenceMapping[_paymentRef].tokenAddress != address(0),
             "Payment reference does not exist"
         );
-        require(withdrawAll(referenceMapping[_paymentRef].payee) = true);
+        withdrawalAllowed(referenceMapping[_paymentRef].payee);
 
         uint amount = referenceMapping[_paymentRef].amount;
         referenceMapping[_paymentRef].amount = 0;
-        
+          // Rinkeby Contract Address 
+        paymentProxy = IERC20FeeProxy(0xda46309973bFfDdD5a10cE12c44d2EE266f45A44);
+
+        paymentProxy.transferFromWithReferenceAndFee(
+            referenceMapping[_paymentRef].tokenAddress, 
+            referenceMapping[_paymentRef].payee, 
+            referenceMapping[_paymentRef].amount, 
+            _paymentRef, 
+            feeAmount, 
+            feeAddress 
+        );
+
         _withdraw(amount, tokenMapping[_ticker].ticker, referenceMapping[_paymentRef].payee);
         
         emit EscrowUnlocked(_paymentRef, amount, referenceMapping[_paymentRef].payee);
     }
-
-
 
 
 }
