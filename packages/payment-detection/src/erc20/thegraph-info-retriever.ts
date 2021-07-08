@@ -36,8 +36,11 @@ export class TheGraphInfoRetriever {
       amount: p.amount,
       name: this.eventName,
       parameters: {
-        to: this.toAddress,
+        to: utils.getAddress(this.toAddress),
+        from: utils.getAddress(p.from),
         txHash: p.txHash,
+        gasUsed: p.gasUsed,
+        gasPrice: p.gasPrice,
         block: p.block,
         feeAddress: p.feeAddress ? utils.getAddress(p.feeAddress) : undefined,
         feeAmount: p.feeAmount || undefined,
