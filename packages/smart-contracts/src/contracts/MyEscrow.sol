@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.6.0 <0.8.6;
+pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/utils/escrow/ConditionalEscrow.sol";
-import "@openzeppelin/contracts/tokens/ERC20/IERC20.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/e4696f73157edb97a146f7d06b88a6a250fec768/contracts/utils/escrow/ConditionalEscrow.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/e4696f73157edb97a146f7d06b88a6a250fec768/contracts/token/ERC20/IERC20.sol";
+import "https://github.com/RequestNetwork/requestNetwork/blob/mvp-escrow/packages/smart-contracts/src/contracts/interfaces/ERC20FeeProxy.sol";
 
 
 // TODO: 
 // Add ERC20 functionality to OP ESCROW
-// Add payment proxy code
+// DONE: Add payment proxy code
 // conditional milestones timestamps, time when money is available to withdraw if not accepted
 // condition to accept the "work" or task as completed
 // function to withdraw for both payee and payer what's best?
@@ -19,7 +20,7 @@ import "@openzeppelin/contracts/tokens/ERC20/IERC20.sol";
 /// @title Invoice based escrow smart-contract
 contract MyEscrow is ConditionalEscrow {
     struct Invoice {
-        IERC20 tokenAddress;
+        address tokenAddress;
         uint amount;
         address payable payee;
     }
@@ -30,27 +31,24 @@ contract MyEscrow is ConditionalEscrow {
     }
 
     mapping(bytes32 => Token) public tokenMapping;
-    mapping(bytes => InvoiceBasedEscrow) private referenceMapping;
+    mapping(bytes => Invoice) private referenceMapping;
     bytes32[] public tokenlist;
 
+    /// Checks if the token a valid token
     modifier tokenExist(bytes32 ticker){
         require(tokenMapping[ticker].tokenAddress != address(0), "Token does not exist");
         _;
     }
 
-    modifier referenceExist(bytes32 _paymentRef) {
-        require(
-            referenceMapping[_paymentRef].tokenAddress != address(0),
-            "Payment reference does not exist");
-        _;
-    }
 
-    
     /// Events to notify when the escrow is locked or unlocked
-    /// @param paymentReference Reference of the payment related
-    /// @dev uint amount and address payee is emitted in Escrow contract
-    event EscrowLocked(bytes32 indexed paymentReference);
-    event EscrowUnlocked(bytes32 indexed paymentReference);
+    event EscrowLocked(bytes indexed paymentReference, uint amount, address payee);
+    event EscrowUnlocked(bytes indexed paymentReference, uint amount, address payee);
+
+    IERC20FeeProxy public paymentProxy;
+    uint public feeAmount;
+    address public feeAddress;
+
 
 
     // Register token to use with the smartcontract
@@ -62,14 +60,14 @@ contract MyEscrow is ConditionalEscrow {
     }
 
 
-    function deposit(uint amount, bytes32 ticker) tokenExist(ticker) external {
-        IERC20(tokenMapping[ticker].tokenAddress).transfer(payee, amount);
+    function _deposit(bytes memory _paymentRef, uint amount, bytes32 ticker) tokenExist(ticker) internal {
+        IERC20(tokenMapping[ticker].tokenAddress).transfer(referenceMapping[_paymentRef].payee, amount);
 
     }
 
 
-    function withdraw(uint amount, bytes32 ticker, address payee) tokenExist(ticker) 
-        external 
+    function _withdraw(uint amount, bytes32 ticker, address payee) tokenExist(ticker) 
+        internal 
         onlyOwner 
     {
         IERC20(tokenMapping[ticker].tokenAddress).transfer(payee, amount);
@@ -81,12 +79,7 @@ contract MyEscrow is ConditionalEscrow {
     /// @param _amount Amount to transfer
     /// @param _payee address of the reciever/ beneficiary of the funds
     /// @param _tokenAddress Address of the ERC20 token smart contract
-    function initAndDeposit(
-        bytes32 _paymentRef, 
-        uint _amount, 
-        address payable _payee, 
-        address _tokenAddress
-    ) 
+    function initAndDeposit(bytes memory _paymentRef, uint _amount, address payable _payee, address _tokenAddress) 
         public
         payable
         onlyOwner 
@@ -96,28 +89,41 @@ contract MyEscrow is ConditionalEscrow {
             "This paymentRef already exists, is this the correct paymentRef?"
         );
 
-        referenceMapping[_paymentRef] = invoice(_amount, _payee, _tokenAddress);
+        // Rinkeby Contract Address 
+        paymentProxy = IERC20FeeProxy(0xda46309973bFfDdD5a10cE12c44d2EE266f45A44);
         
-        // FIXME: use payment Proxy code to deposit
-        deposit(escrow.payee);
+        referenceMapping[_paymentRef] = Invoice(_tokenAddress, _amount, _payee);
+        
 
-        emit EscrowLocked(_paymentRef);
+        paymentProxy.transferFromWithReferenceAndFee(
+            _tokenAddress, 
+            _payee, 
+            _amount, 
+            _paymentRef, 
+            feeAmount, 
+            feeAddress 
+        );
+
+        emit EscrowLocked(_paymentRef, _amount, _payee);
     }
    
 
     /// Get the escrow details of a given _paymentRef
     /// @param _paymentRef Reference of the payment related
     /// @dev onlyOwner modifier 
-    /// @return uint amount, address payee
-    function getEscrow(bytes32 _paymentRef) referenceExist(_paymentRef) public view onlyOwner 
+    function getEscrow(bytes memory _paymentRef) public view onlyOwner 
         returns (
+        address token,
         uint amount, 
-        address payee, 
-        address token
+        address payee
         ) 
     {
+        require(
+            referenceMapping[_paymentRef].tokenAddress != address(0),
+            "Payment reference does not exist"
+        );
         return ( 
-            referenceMapping[_paymentRef].token, 
+            referenceMapping[_paymentRef].tokenAddress, 
             referenceMapping[_paymentRef].amount, 
             referenceMapping[_paymentRef].payee 
         );
@@ -127,14 +133,18 @@ contract MyEscrow is ConditionalEscrow {
     /// Withdraw the funds of escrow from a given _paymentRef
     /// @param _paymentRef Reference of the payment related
     /// @dev onlyOwner modifier 
-    // FIXME: add conditionalEscrow functionality
-    function withdrawFunds(bytes32 _paymentRef) preferenceExist(_paymentRef) public onlyOwner {
+    function withdraw(bytes memory _paymentRef, bytes32 _ticker) public onlyOwner {
+        require(
+            referenceMapping[_paymentRef].tokenAddress != address(0),
+            "Payment reference does not exist"
+        );
+        require(withdrawAll(referenceMapping[_paymentRef].payee) == true);
         uint amount = referenceMapping[_paymentRef].amount;
-        referencedEscrows[_paymentRef].amount = 0;
+        referenceMapping[_paymentRef].amount = 0;
         
-        withdraw(amount, referenceMapping[_paymentRef], referenceMapping[_paymentRef].payee);
+        _withdraw(amount, tokenMapping[_ticker].ticker, referenceMapping[_paymentRef].payee);
         
-        emit EscrowUnlocked(_paymentRef);
+        emit EscrowUnlocked(_paymentRef, amount, referenceMapping[_paymentRef].payee);
     }
 
 
