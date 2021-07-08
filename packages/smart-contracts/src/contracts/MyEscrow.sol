@@ -133,12 +133,13 @@ contract MyEscrow is ConditionalEscrow {
     /// Withdraw the funds of escrow from a given _paymentRef
     /// @param _paymentRef Reference of the payment related
     /// @dev onlyOwner modifier 
-    function withdraw(bytes memory _paymentRef, bytes32 _ticker) public onlyOwner {
+    function withdrawFunds(bytes memory _paymentRef, bytes32 _ticker) public onlyOwner {
         require(
             referenceMapping[_paymentRef].tokenAddress != address(0),
             "Payment reference does not exist"
         );
-        require(withdrawAll(referenceMapping[_paymentRef].payee) == true);
+        require(withdrawAll(referenceMapping[_paymentRef].payee) = true);
+
         uint amount = referenceMapping[_paymentRef].amount;
         referenceMapping[_paymentRef].amount = 0;
         
