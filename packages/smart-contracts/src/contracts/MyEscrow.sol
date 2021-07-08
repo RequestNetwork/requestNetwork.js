@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.6;
+pragma solidity >=0.6.0 <0.8.6;
 
 import "@openzeppelin/contracts/utils/escrow/ConditionalEscrow.sol";
 import "@openzeppelin/contracts/tokens/ERC20/IERC20.sol";
@@ -18,35 +18,86 @@ import "@openzeppelin/contracts/tokens/ERC20/IERC20.sol";
 /// @author Viken Blockchain Solutions
 /// @title Invoice based escrow smart-contract
 contract MyEscrow is ConditionalEscrow {
-    struct InvoiceBasedEscrow {
-        IERC20 token;
+    struct Invoice {
+        IERC20 tokenAddress;
         uint amount;
         address payable payee;
     }
     
-    mapping(bytes => InvoiceBasedEscrow) private referencedEscrows;
+    struct Token {
+        bytes32 ticker;
+        address tokenAddress;
+    }
 
+    mapping(bytes32 => Token) public tokenMapping;
+    mapping(bytes => InvoiceBasedEscrow) private referenceMapping;
+    bytes32[] public tokenlist;
+
+    modifier tokenExist(bytes32 ticker){
+        require(tokenMapping[ticker].tokenAddress != address(0), "Token does not exist");
+        _;
+    }
+
+    modifier referenceExist(bytes32 _paymentRef) {
+        require(
+            referenceMapping[_paymentRef].tokenAddress != address(0),
+            "Payment reference does not exist");
+        _;
+    }
+
+    
     /// Events to notify when the escrow is locked or unlocked
     /// @param paymentReference Reference of the payment related
-    /// @dev   uint amount and address payee is emited from the ConditionalEscrow inherited smart-contract
-    event EscrowLocked(bytes indexed paymentReference);
-    event EscrowUnlocked(bytes indexed paymentReference);
+    /// @dev uint amount and address payee is emitted in Escrow contract
+    event EscrowLocked(bytes32 indexed paymentReference);
+    event EscrowUnlocked(bytes32 indexed paymentReference);
 
 
-    /// Store the payment referance in the struct and transfer the funds to the ESCROW smart-contract
+    // Register token to use with the smartcontract
+    /// @param ticker ticker symbol of token
+    /// @param tokenAddress contract address of token
+    function addToken(bytes32 ticker, address tokenAddress) external onlyOwner {
+        tokenMapping[ticker] = Token(ticker, tokenAddress);
+        tokenlist.push(ticker);
+    }
+
+
+    function deposit(uint amount, bytes32 ticker) tokenExist(ticker) external {
+        IERC20(tokenMapping[ticker].tokenAddress).transfer(payee, amount);
+
+    }
+
+
+    function withdraw(uint amount, bytes32 ticker, address payee) tokenExist(ticker) 
+        external 
+        onlyOwner 
+    {
+        IERC20(tokenMapping[ticker].tokenAddress).transfer(payee, amount);
+    } 
+
+
+    /// Store the payment details in struct, then transfers the funds to the Escrow contract
     /// @param _paymentRef Reference of the payment related
     /// @param _amount Amount to transfer
     /// @param _payee address of the reciever/ beneficiary of the funds
     /// @param _tokenAddress Address of the ERC20 token smart contract
-    /// @dev 
-    /// @dev
-    function initAndDeposit(bytes memory _paymentRef, uint _amount, address payable _payee, address _tokenAddress) public payable onlyOwner {
-        require(referencedEscrows[_paymentRef].amount == 0, "This paymentRef already exists, is this the correct paymentRef?");
-        InvoiceBasedEscrow storage escrow = referencedEscrows[_paymentRef];
-        escrow.amount = _amount;
-        escrow.payee = _payee;
-        escrow.token = _tokenAddress;
+    function initAndDeposit(
+        bytes32 _paymentRef, 
+        uint _amount, 
+        address payable _payee, 
+        address _tokenAddress
+    ) 
+        public
+        payable
+        onlyOwner 
+    {
+        require(
+            referenceMapping[_paymentRef].amount == 0, 
+            "This paymentRef already exists, is this the correct paymentRef?"
+        );
 
+        referenceMapping[_paymentRef] = invoice(_amount, _payee, _tokenAddress);
+        
         // FIXME: use payment Proxy code to deposit
         deposit(escrow.payee);
 
@@ -58,8 +109,18 @@ contract MyEscrow is ConditionalEscrow {
     /// @param _paymentRef Reference of the payment related
     /// @dev onlyOwner modifier 
     /// @return uint amount, address payee
-    function getEscrow(bytes memory _paymentRef) public view onlyOwner returns (uint amount, address payee, address token) {
-        return ( referencedEscrows[_paymentRef]. , referencedEscrows[_paymentRef].amount, referencedEscrows[_paymentRef].payee );
+    function getEscrow(bytes32 _paymentRef) referenceExist(_paymentRef) public view onlyOwner 
+        returns (
+        uint amount, 
+        address payee, 
+        address token
+        ) 
+    {
+        return ( 
+            referenceMapping[_paymentRef].token, 
+            referenceMapping[_paymentRef].amount, 
+            referenceMapping[_paymentRef].payee 
+        );
     }
    
 
@@ -67,12 +128,16 @@ contract MyEscrow is ConditionalEscrow {
     /// @param _paymentRef Reference of the payment related
     /// @dev onlyOwner modifier 
     // FIXME: add conditionalEscrow functionality
-    function withdrawFunds(bytes memory _paymentRef) public onlyOwner {
-        uint amount = referencedEscrows[_paymentRef].amount;
+    function withdrawFunds(bytes32 _paymentRef) preferenceExist(_paymentRef) public onlyOwner {
+        uint amount = referenceMapping[_paymentRef].amount;
         referencedEscrows[_paymentRef].amount = 0;
-        withdraw(referencedEscrows[_paymentRef].payee);
+        
+        withdraw(amount, referenceMapping[_paymentRef], referenceMapping[_paymentRef].payee);
         
         emit EscrowUnlocked(_paymentRef);
     }
+
+
+
 
 }
