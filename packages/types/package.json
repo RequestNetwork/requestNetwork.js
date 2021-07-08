@@ -37,11 +37,11 @@
     "prepare": "yarn run build"
   },
   "dependencies": {
-    "ethers": "5.2.0",
+    "ethers": "5.4.1",
     "events": "3.2.0"
   },
   "devDependencies": {
-    "@ethersproject/abstract-signer": "5.0.14",
+    "@ethersproject/abstract-signer": "5.4.0",
     "@types/events": "3.0.0",
     "shx": "0.3.2",
     "ts-node": "9.0.0",
