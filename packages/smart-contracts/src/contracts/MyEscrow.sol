@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.6;
 
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/e4696f73157edb97a146f7d06b88a6a250fec768/contracts/utils/escrow/ConditionalEscrow.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/e4696f73157edb97a146f7d06b88a6a250fec768/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/escrow/Escrow.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "https://github.com/RequestNetwork/requestNetwork/blob/mvp-escrow/packages/smart-contracts/src/contracts/interfaces/ERC20FeeProxy.sol";
 
 
@@ -18,7 +18,7 @@ import "https://github.com/RequestNetwork/requestNetwork/blob/mvp-escrow/package
 
 /// @author Viken Blockchain Solutions
 /// @title Invoice based escrow smart-contract
-contract MyEscrow is ConditionalEscrow {
+contract MyEscrow is Escrow {
     struct Invoice {
         address tokenAddress;
         uint amount;
@@ -123,10 +123,10 @@ contract MyEscrow is ConditionalEscrow {
             referenceMapping[_paymentRef].tokenAddress != address(0),
             "Payment reference does not exist"
         );
-        withdrawalAllowed(referenceMapping[_paymentRef].payee);
 
         uint amount = referenceMapping[_paymentRef].amount;
         referenceMapping[_paymentRef].amount = 0;
+        
           // Rinkeby Contract Address 
         paymentProxy = IERC20FeeProxy(0xda46309973bFfDdD5a10cE12c44d2EE266f45A44);
 
