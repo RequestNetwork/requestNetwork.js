@@ -110,7 +110,7 @@ contract MyEscrow is Escrow {
 */
         _withdraw(_paymentRef);
         
-        emit EscrowCompleted(_paymentRef, paymentsMapping[_paymentRef].amount, paymentsMapping[_paymentRef].payee,paymentsMapping[_paymentRef].payer, address(paymentToken));
+        emit EscrowCompleted(_paymentRef, amount, paymentsMapping[_paymentRef].payee, paymentsMapping[_paymentRef].payer, address(paymentToken));
     }
 
 
